@@ -19,7 +19,10 @@ class CodeDirectorySlot(object):
         self.codesig = codesig
 
     def get_hash(self):
-        return hashlib.sha1(self.get_contents()).digest()
+        contents = self.get_contents()
+        if not contents:
+            return []
+        return hashlib.sha1(contents).digest()
 
 
 class EntitlementsSlot(CodeDirectorySlot):
@@ -50,7 +53,10 @@ class RequirementsSlot(CodeDirectorySlot):
     offset = -2
 
     def get_contents(self):
-        return self.codesig.get_blob_data('CSMAGIC_REQUIREMENTS')
+        try:
+            return self.codesig.get_blob_data('CSMAGIC_REQUIREMENTS')
+        except KeyError:
+            return []
 
 
 class InfoSlot(CodeDirectorySlot):
@@ -110,7 +116,11 @@ class Codesig(object):
     def set_requirements(self, signer):
 
         # log.debug("requirements:")
-        requirements = self.get_blob('CSMAGIC_REQUIREMENTS')
+        try:
+            requirements = self.get_blob('CSMAGIC_REQUIREMENTS')
+        except KeyError as e:
+            log.warning("Key not found: %s" % e)
+            return
         # requirements_data = macho_cs.Blob_.build(requirements)
         # log.debug(hashlib.sha1(requirements_data).hexdigest())
 

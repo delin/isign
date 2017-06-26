@@ -52,6 +52,8 @@ def make_expr(op, *args):
     if isinstance(data_type, macho_cs.Sequence):
         if len(data_type.subcons) == len(args):
             data = [make_arg(dt, arg) for dt, arg in zip(data_type.subcons, args)]
+        elif len(args) == 0:
+            data = []
         else:
             # automatically nest binary operations to accept >2 args
             data = [make_arg(data_type.subcons[0], args[0]),
@@ -94,7 +96,13 @@ def make_requirements(drs, ident, signer):
                                                                 bytes=des_req_data))])
 
     if drs:
-        dr_exprs = [dr.blob.data.expr for dr in drs.data.BlobIndex]
+        dr_exprs = []
+        for dr in drs.data.BlobIndex:
+            if not dr.blob:
+                continue
+            dr_exprs.append(dr.blob.data.expr)
+        # if len(dr_exprs) == 0:
+        #     return None
         expr = make_expr('Or', *dr_exprs)
         lib_req = construct.Container(kind=1, expr=expr)
         lib_req_data = macho_cs.Requirement.build(lib_req)
@@ -171,16 +179,19 @@ def make_basic_codesig(entitlements_file, drs, code_limit, hashes, signer, ident
                                                             ))
 
     offset += cd_index.blob.length
+    requirements_index = None
     reqs_sblob = make_requirements(drs, ident, signer)
-    reqs_sblob_data = macho_cs.Entitlements.build(reqs_sblob)
-    requirements_index = construct.Container(type=2,
-                                             offset=offset,
-                                             blob=construct.Container(magic='CSMAGIC_REQUIREMENTS',
-                                                                      length=len(reqs_sblob_data) + 8,
-                                                                      data="",
-                                                                      bytes=reqs_sblob_data,
-                                                                      ))
-    offset += requirements_index.blob.length
+    if reqs_sblob:
+        log.warning("no requirements")
+        reqs_sblob_data = macho_cs.Entitlements.build(reqs_sblob)
+        requirements_index = construct.Container(type=2,
+                                                 offset=offset,
+                                                 blob=construct.Container(magic='CSMAGIC_REQUIREMENTS',
+                                                                          length=len(reqs_sblob_data) + 8,
+                                                                          data="",
+                                                                          bytes=reqs_sblob_data,
+                                                                          ))
+        offset += requirements_index.blob.length
 
     entitlements_index = None
     if entitlements_file != None and not signer.is_adhoc():
